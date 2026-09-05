@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#f7f4ef" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="今天去哪" />
+  <link rel="manifest" href="/manifest.webmanifest" />
+  <title>今天去哪？</title>
+  <style>
+    :root{--bg:#f7f4ef;--card:#fff;--ink:#1d1d1f;--muted:#777;--line:#e7e1d9;--accent:#1d1d1f;--good:#16784f}
+    *{box-sizing:border-box} body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC",sans-serif}
+    main{max-width:720px;margin:auto;padding:calc(env(safe-area-inset-top) + 22px) 18px calc(env(safe-area-inset-bottom) + 36px)}
+    h1{font-size:34px;margin:0 0 4px;letter-spacing:-1px}.sub{color:var(--muted);margin-bottom:22px}
+    .panel,.flight{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:17px;box-shadow:0 8px 28px rgba(0,0,0,.035)}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}.wide{grid-column:1/-1}
+    label{font-size:12px;color:var(--muted);display:block;margin:0 0 6px 3px} select,input{width:100%;font:inherit;padding:13px;border:1px solid var(--line);border-radius:14px;background:#fff;color:var(--ink)}
+    .toggle{display:flex;align-items:center;gap:9px;font-size:14px;margin-top:5px}.toggle input{width:auto}
+    button{width:100%;border:0;border-radius:16px;background:var(--accent);color:#fff;padding:15px;font-weight:700;font-size:17px;margin-top:15px}
+    button:disabled{opacity:.45}.status{text-align:center;color:var(--muted);padding:20px 5px}.results{display:grid;gap:12px;margin-top:18px}
+    .flight{padding:16px}.top{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}.city{font-weight:800;font-size:20px}.iata{color:var(--muted);font-size:13px}.price{font-weight:850;font-size:21px;white-space:nowrap}.rank{font-size:12px;color:var(--good);font-weight:700;margin-bottom:5px}
+    .meta{display:flex;flex-wrap:wrap;gap:8px;margin-top:11px;color:#4a4a4a;font-size:13px}.pill{background:#f4f1ec;border-radius:999px;padding:6px 9px}.time{margin-top:11px;font-size:14px}.tiny{font-size:11px;color:var(--muted);margin-top:9px}
+    .tabs{display:flex;gap:8px;margin-bottom:12px}.tabs button{margin:0;background:#ece7df;color:#333;font-size:14px;padding:10px}.tabs button.active{background:#1d1d1f;color:#fff}
+    @media(max-width:480px){.grid{grid-template-columns:1fr}.wide{grid-column:auto}h1{font-size:31px}}
+  </style>
+</head>
+<body><main>
+  <h1>✈️ 今天去哪？</h1>
+  <div class="sub">選一個國家，一次掃主要機場，直接找最低價。</div>
+
+  <section class="panel">
+    <div class="tabs">
+      <button id="oneway" class="active" type="button">單程</button>
+      <button id="roundtrip" type="button">來回</button>
+    </div>
+    <div class="grid">
+      <div><label>出發機場</label><select id="origin"><option value="TPE">桃園 TPE</option><option value="TSA">松山 TSA</option><option value="RMQ">台中 RMQ</option><option value="KHH">高雄 KHH</option></select></div>
+      <div><label>想去的國家</label><select id="country"><option value="JP">🇯🇵 日本</option><option value="KR">🇰🇷 韓國</option><option value="TH">🇹🇭 泰國</option><option value="VN">🇻🇳 越南</option><option value="PH">🇵🇭 菲律賓</option><option value="HK">🇭🇰 香港</option><option value="MO">🇲🇴 澳門</option><option value="SG">🇸🇬 新加坡</option><option value="MY">🇲🇾 馬來西亞</option><option value="ID">🇮🇩 印尼</option></select></div>
+      <div><label>出發日期</label><input id="date" type="date" /></div>
+      <div id="returnWrap" style="display:none"><label>回程日期</label><input id="returnDate" type="date" /></div>
+      <div><label>預算上限（TWD，可空白）</label><input id="budget" inputmode="numeric" type="number" min="0" placeholder="例如 5000" /></div>
+      <div style="align-self:end"><label class="toggle"><input id="direct" type="checkbox" checked />只看直飛</label></div>
+    </div>
+    <button id="search">搜尋這個國家最便宜航班</button>
+  </section>
+
+  <div id="status" class="status"></div>
+  <section id="results" class="results"></section>
+</main>
+<script>
+const $=s=>document.querySelector(s);let round=false;
+function localISODate(d=new Date()){const z=new Date(d.getTime()-d.getTimezoneOffset()*60000);return z.toISOString().slice(0,10)}
+const today=localISODate();$('#date').min=today;$('#date').value=today;$('#returnDate').min=today;
+$('#oneway').onclick=()=>setTrip(false);$('#roundtrip').onclick=()=>setTrip(true);
+function setTrip(v){round=v;$('#oneway').classList.toggle('active',!v);$('#roundtrip').classList.toggle('active',v);$('#returnWrap').style.display=v?'block':'none';if(v&&!$('#returnDate').value){const d=new Date();d.setDate(d.getDate()+3);$('#returnDate').value=localISODate(d)}}
+function money(amount,currency){try{return new Intl.NumberFormat('zh-TW',{style:'currency',currency,maximumFractionDigits:0}).format(amount)}catch{return `${currency} ${amount}`}}
+function dt(s){if(!s)return '—';return new Intl.DateTimeFormat('zh-TW',{month:'numeric',day:'numeric',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(s))}
+$('#search').onclick=async()=>{
+  const btn=$('#search'), status=$('#status'), box=$('#results');
+  btn.disabled=true;box.innerHTML='';status.textContent='正在同時搜尋各主要機場…';
+  try{
+    const body={origin:$('#origin').value,country:$('#country').value,date:$('#date').value,returnDate:round?$('#returnDate').value:'',direct:$('#direct').checked,budget:Number($('#budget').value||0)};
+    if(round && body.returnDate<body.date) throw new Error('回程日期不能早於出發日期');
+    const r=await fetch('/api/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});const data=await r.json();
+    if(!r.ok) throw new Error(data.error||'搜尋失敗');
+    status.textContent=`已搜尋 ${data.searched} 個目的地，找到 ${data.results.length} 個符合條件的最低價。`;
+    if(!data.results.length){box.innerHTML='<div class="panel">目前沒有符合條件的航班。可以取消「只看直飛」、提高預算或換日期。</div>';return}
+    box.innerHTML=data.results.map((f,i)=>`<article class="flight"><div class="rank">${i<3?'🔥 最便宜 #'+(i+1):'優惠排行 #'+(i+1)}</div><div class="top"><div><div class="city">${f.city}</div><div class="iata">${f.destination}</div></div><div class="price">${money(f.amount,f.currency)}</div></div><div class="meta"><span class="pill">${f.airline}</span><span class="pill">${f.stops===0?'直飛':f.stops+' 次轉機'}</span>${f.duration?`<span class="pill">${f.duration.replace('PT','').toLowerCase()}</span>`:''}<span class="pill">行李：${f.baggage}</span></div><div class="time">${dt(f.departAt)} → ${dt(f.arriveAt)}</div><div class="tiny">票價即時變動；結果有效期限：${f.expiresAt?dt(f.expiresAt):'依航空公司'}</div></article>`).join('');
+  }catch(e){status.textContent='';box.innerHTML=`<div class="panel">⚠️ ${e.message}</div>`}finally{btn.disabled=false}
+};
+if('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js').catch(()=>{});
+</script></body></html>

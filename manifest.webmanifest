@@ -1,0 +1,9 @@
+{
+  "name": "今天去哪？機票優惠搜尋",
+  "short_name": "今天去哪",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7f4ef",
+  "theme_color": "#f7f4ef",
+  "lang": "zh-Hant"
+}

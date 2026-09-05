@@ -1,0 +1,10 @@
+{
+  "name": "today-where-flight-app",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vercel dev"
+  },
+  "engines": { "node": ">=20" }
+}
