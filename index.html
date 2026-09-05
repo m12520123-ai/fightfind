@@ -12,7 +12,7 @@
 :root{--bg:#f7f4ef;--card:#fff;--ink:#1d1d1f;--muted:#777;--line:#e7e1d9;--good:#16784f;--soft:#f4f1ec;--hot:#b54720}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"PingFang TC","Noto Sans TC",sans-serif}
-main{max-width:760px;margin:auto;padding:calc(env(safe-area-inset-top) + 22px) 18px calc(env(safe-area-inset-bottom) + 36px)}
+main{max-width:780px;margin:auto;padding:calc(env(safe-area-inset-top) + 22px) 18px calc(env(safe-area-inset-bottom) + 36px)}
 h1{font-size:34px;margin:0 0 4px;letter-spacing:-1px}.sub{color:var(--muted);margin-bottom:22px}
 .panel,.flight,.promo{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:17px;box-shadow:0 8px 28px rgba(0,0,0,.035)}
 .grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
@@ -32,7 +32,14 @@ button:disabled{opacity:.45}.status{text-align:center;color:var(--muted);padding
 .airlineRow{display:grid;grid-template-columns:1fr auto;gap:10px;align-items:center;background:#faf8f5;border-radius:14px;padding:10px 11px}
 .airlineName{font-size:13px;font-weight:700}.airlineMeta{font-size:11px;color:var(--muted);margin-top:3px}.airlinePrice{font-weight:800;white-space:nowrap}
 .promoGrid{display:grid;gap:10px}.promo{border-left:4px solid #d96c3b}.promo .price{font-size:19px}
-@media(max-width:480px){.grid{grid-template-columns:1fr}h1{font-size:31px}.airlineRow{grid-template-columns:1fr auto}}
+.calendarWrap{margin-top:18px}.calendarHead{display:flex;justify-content:space-between;align-items:end;gap:12px;margin-bottom:10px}
+.calRoute{font-size:12px;color:var(--muted)}
+.calendar{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.weekday{text-align:center;font-size:11px;color:var(--muted);padding:4px 0}
+.day,.blank{min-height:70px;border-radius:14px;padding:8px;background:#fff;border:1px solid var(--line)}
+.blank{visibility:hidden}.daynum{font-size:12px;font-weight:800}.dayprice{font-size:12px;font-weight:800;margin-top:8px}.daymeta{font-size:10px;color:var(--muted);margin-top:4px}
+.cheapest{outline:2px solid #16784f}.noPrice{color:#bbb;font-weight:500}
+@media(max-width:520px){.grid{grid-template-columns:1fr}h1{font-size:31px}.airlineRow{grid-template-columns:1fr auto}.day,.blank{min-height:62px;padding:6px}.dayprice{font-size:11px}}
 </style>
 <script nowprocket data-noptimize="1" data-cfasync="false" data-wpfc-render="false" seraph-accel-crit="1" data-no-defer="1" data-cmp-ab="2">
 (function(){var script=document.createElement("script");script.async=1;script.setAttribute("data-cmp-ab","2");script.src='https://emrldtp.cc/NTcwNjQ1.js?t=570645';document.head.appendChild(script)})();
@@ -40,30 +47,50 @@ button:disabled{opacity:.45}.status{text-align:center;color:var(--muted);padding
 </head>
 <body><main>
 <h1>✈️ 今天去哪？</h1>
-<div class="sub">選一個國家，一次掃主要機場，找最低價、航空公司與促銷票。</div>
+<div class="sub">可以搜整個國家，也可以指定機場；下方還能看整月每天最低參考價。</div>
 
 <section class="panel">
 <div class="tabs"><button id="oneway" class="active" type="button">單程</button><button id="roundtrip" type="button">來回</button></div>
 <div class="grid">
 <div><label>出發機場</label><select id="origin"><option value="TPE">桃園 TPE</option><option value="TSA">松山 TSA</option><option value="RMQ">台中 RMQ</option><option value="KHH">高雄 KHH</option></select></div>
-<div><label>想去的國家</label><select id="country"><option value="JP">🇯🇵 日本</option><option value="KR">🇰🇷 韓國</option><option value="TH">🇹🇭 泰國</option><option value="VN">🇻🇳 越南</option><option value="PH">🇵🇭 菲律賓</option><option value="HK">🇭🇰 香港</option><option value="MO">🇲🇴 澳門</option><option value="SG">🇸🇬 新加坡</option><option value="MY">🇲🇾 馬來西亞</option><option value="ID">🇮🇩 印尼</option></select></div>
+<div><label>想去的國家</label><select id="country"></select></div>
+
+<div><label>目的機場</label><select id="destination"></select></div>
 <div><label>出發日期</label><input id="date" type="date"></div>
+
 <div id="returnWrap" style="display:none"><label>回程日期</label><input id="returnDate" type="date"></div>
+<div><label>低價月曆月份</label><input id="calendarMonth" type="month"></div>
+
 <div><label>預算上限（TWD，可空白）</label><input id="budget" inputmode="numeric" type="number" min="0" placeholder="例如 5000"></div>
 <div style="align-self:end"><label class="toggle"><input id="direct" type="checkbox">只看直飛</label></div>
 </div>
-<button id="search">搜尋最低價＋航空公司＋促銷</button>
+<button id="search">搜尋最低價＋航空公司＋低價月曆</button>
 </section>
 
 <div id="status" class="status"></div>
 <section id="promos" class="results"></section>
+<section id="calendarSection" class="calendarWrap"></section>
 <section id="results" class="results"></section>
 </main>
 
 <script>
+const AIRPORTS={
+ JP:{label:'🇯🇵 日本',items:[['NRT','東京成田'],['HND','東京羽田'],['KIX','大阪關西'],['OKA','沖繩'],['FUK','福岡'],['CTS','札幌新千歲'],['NGO','名古屋'],['SDJ','仙台'],['KMJ','熊本'],['KOJ','鹿兒島'],['HIJ','廣島'],['TAK','高松'],['MYJ','松山'],['KMQ','小松'],['OIT','大分'],['NGS','長崎']]},
+ KR:{label:'🇰🇷 韓國',items:[['ICN','首爾仁川'],['GMP','首爾金浦'],['PUS','釜山'],['CJU','濟州'],['TAE','大邱'],['CJJ','清州']]},
+ TH:{label:'🇹🇭 泰國',items:[['BKK','曼谷蘇凡納布'],['DMK','曼谷廊曼'],['CNX','清邁'],['HKT','普吉'],['KBV','喀比']]},
+ VN:{label:'🇻🇳 越南',items:[['SGN','胡志明市'],['HAN','河內'],['DAD','峴港'],['PQC','富國島'],['CXR','芽莊']]},
+ PH:{label:'🇵🇭 菲律賓',items:[['MNL','馬尼拉'],['CEB','宿霧'],['CRK','克拉克'],['DVO','達沃'],['PPS','公主港']]},
+ HK:{label:'🇭🇰 香港',items:[['HKG','香港']]},MO:{label:'🇲🇴 澳門',items:[['MFM','澳門']]},
+ SG:{label:'🇸🇬 新加坡',items:[['SIN','新加坡']]},
+ MY:{label:'🇲🇾 馬來西亞',items:[['KUL','吉隆坡'],['PEN','檳城'],['BKI','亞庇'],['JHB','新山']]},
+ ID:{label:'🇮🇩 印尼',items:[['DPS','峇里島'],['CGK','雅加達'],['SUB','泗水']]}
+};
 const $=s=>document.querySelector(s);let round=false;
+function initCountries(){const c=$('#country');c.innerHTML=Object.entries(AIRPORTS).map(([k,v])=>`<option value="${k}">${v.label}</option>`).join('');updateDestinations()}
+function updateDestinations(){const v=AIRPORTS[$('#country').value];$('#destination').innerHTML=`<option value="">全部主要機場</option>`+v.items.map(([iata,city])=>`<option value="${iata}">${city} ${iata}</option>`).join('')}
 function localISODate(d=new Date()){const z=new Date(d.getTime()-d.getTimezoneOffset()*60000);return z.toISOString().slice(0,10)}
-const today=localISODate();$('#date').min=today;$('#date').value=today;$('#returnDate').min=today;
+const today=localISODate();$('#date').min=today;$('#date').value=today;$('#returnDate').min=today;$('#calendarMonth').value=today.slice(0,7);
+initCountries();$('#country').onchange=updateDestinations;
 $('#oneway').onclick=()=>setTrip(false);$('#roundtrip').onclick=()=>setTrip(true);
 function setTrip(v){round=v;$('#oneway').classList.toggle('active',!v);$('#roundtrip').classList.toggle('active',v);$('#returnWrap').style.display=v?'block':'none';if(v&&!$('#returnDate').value){const d=new Date();d.setDate(d.getDate()+3);$('#returnDate').value=localISODate(d)}}
 function money(a,c){try{return new Intl.NumberFormat('zh-TW',{style:'currency',currency:c||'TWD',maximumFractionDigits:0}).format(a)}catch{return `${c||'TWD'} ${a}`}}
@@ -71,26 +98,34 @@ function dt(s){if(!s)return '';const d=new Date(s);if(Number.isNaN(d.getTime()))
 function durationText(v){if(v==null||v==='')return '';if(typeof v==='number'||Number.isFinite(Number(v))){const t=Math.round(Number(v)),h=Math.floor(t/60),m=t%60;return h?(m?`${h}h ${m}m`:`${h}h`):`${m}m`}if(typeof v==='string'&&/^PT/i.test(v))return v.replace(/^PT/i,'').replace(/H/i,'h ').replace(/M/i,'m').trim();return String(v)}
 function esc(v=''){return String(v).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;').replaceAll("'","&#039;")}
 function stopText(v){return v===0?'直飛':Number.isFinite(Number(v))?`${v} 次轉機`:'轉機資訊未提供'}
-function promoCard(p){
- const dep=dt(p.departAt),dur=durationText(p.duration),book=p.link?`<a class="book" href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">查看促銷票</a>`:'';
- return `<article class="promo"><div class="rank hot">🔥 特價票</div><div class="top"><div><div class="city">${esc(p.city||p.destination||'')}</div><div class="iata">${esc(p.destination||'')} · ${esc(p.airlineName||p.airline||'航空公司')}</div></div><div class="price">${money(p.amount,p.currency||'TWD')}</div></div><div class="meta">${dep?`<span class="pill">${dep}</span>`:''}${dur?`<span class="pill">${dur}</span>`:''}</div>${book}</article>`
+
+function renderCalendar(cal){
+ const el=$('#calendarSection');
+ if(!cal||!cal.destination){el.innerHTML='<div class="panel"><div class="sectionTitle">📅 每日低價月曆</div><div class="sectionSub">請在「目的機場」選一個指定機場，就能看到該月 1～31 日每天最低參考價。</div></div>';return}
+ const [y,m]=cal.month.split('-').map(Number),days=new Date(y,m,0).getDate(),first=new Date(y,m-1,1).getDay();
+ const byDay=new Map((cal.days||[]).map(x=>[Number(x.day),x]));
+ const vals=(cal.days||[]).map(x=>x.amount).filter(Number.isFinite),min=vals.length?Math.min(...vals):null;
+ const cells=[];for(let i=0;i<first;i++)cells.push('<div class="blank"></div>');
+ for(let d=1;d<=days;d++){const x=byDay.get(d),cheap=x&&min!==null&&x.amount===min;cells.push(`<div class="day ${cheap?'cheapest':''}"><div class="daynum">${d}</div>${x?`<div class="dayprice">${money(x.amount,x.currency||'TWD')}</div><div class="daymeta">${x.stops===0?'直飛':x.stops+'轉'}</div>`:`<div class="dayprice noPrice">—</div>`}</div>`)}
+ el.innerHTML=`<div class="panel"><div class="calendarHead"><div><div class="sectionTitle">📅 ${cal.month} 每日最低價</div><div class="calRoute">${esc(cal.origin)} → ${esc(cal.city||cal.destination)} ${esc(cal.destination)}｜單程參考價</div></div></div><div class="calendar"><div class="weekday">日</div><div class="weekday">一</div><div class="weekday">二</div><div class="weekday">三</div><div class="weekday">四</div><div class="weekday">五</div><div class="weekday">六</div>${cells.join('')}</div><div class="tiny">— 代表 Travelpayouts 快取目前沒有該日價格；價格為近期搜尋參考值，不等於即時庫存。</div></div>`;
 }
+function promoCard(p){const dep=dt(p.departAt),dur=durationText(p.duration),book=p.link?`<a class="book" href="${esc(p.link)}" target="_blank" rel="noopener noreferrer">查看促銷票</a>`:'';return `<article class="promo"><div class="rank hot">🔥 特價票</div><div class="top"><div><div class="city">${esc(p.city||p.destination||'')}</div><div class="iata">${esc(p.destination||'')} · ${esc(p.airlineName||p.airline||'航空公司')}</div></div><div class="price">${money(p.amount,p.currency||'TWD')}</div></div><div class="meta">${dep?`<span class="pill">${dep}</span>`:''}${dur?`<span class="pill">${dur}</span>`:''}</div>${book}</article>`}
+
 $('#search').onclick=async()=>{
- const btn=$('#search'),status=$('#status'),box=$('#results'),promos=$('#promos');btn.disabled=true;box.innerHTML='';promos.innerHTML='';status.textContent='正在搜尋各主要機場與航空公司…';
+ const btn=$('#search'),status=$('#status'),box=$('#results'),promos=$('#promos');btn.disabled=true;box.innerHTML='';promos.innerHTML='';$('#calendarSection').innerHTML='';status.textContent='正在搜尋最低價、航空公司與月曆價格…';
  try{
-  const body={origin:$('#origin').value,country:$('#country').value,date:$('#date').value,returnDate:round?$('#returnDate').value:'',direct:$('#direct').checked,budget:Number($('#budget').value||0)};
+  const body={origin:$('#origin').value,country:$('#country').value,destination:$('#destination').value,date:$('#date').value,returnDate:round?$('#returnDate').value:'',calendarMonth:$('#calendarMonth').value,direct:$('#direct').checked,budget:Number($('#budget').value||0)};
   if(round&&body.returnDate<body.date)throw new Error('回程日期不能早於出發日期');
   const r=await fetch('/api/search',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}),data=await r.json().catch(()=>({}));
   if(!r.ok)throw new Error(data.error||'搜尋失敗');
-  status.textContent=`已搜尋 ${data.searched||0} 個目的地，找到 ${(data.results||[]).length} 個最低價目的地。`;
-  if(data.specials?.length){
-    promos.innerHTML=`<div><div class="sectionTitle">🔥 航空促銷／異常低價</div><div class="sectionSub">Travelpayouts 標記的 special offers，售完可能失效。</div></div><div class="promoGrid">${data.specials.map(promoCard).join('')}</div>`;
-  }
-  if(!data.results?.length){let h='目前沒有符合條件的航班。';h+=body.direct?' 可以取消「只看直飛」、提高預算或換日期。':body.budget?' 可以提高預算或換日期。':' 可以換日期或改其他出發機場。';box.innerHTML=`<div class="panel">${h}</div>`;return}
+  status.textContent=`已搜尋 ${data.searched||0} 個目的地，找到 ${(data.results||[]).length} 個最低價結果。`;
+  renderCalendar(data.calendar);
+  if(data.specials?.length)promos.innerHTML=`<div><div class="sectionTitle">🔥 航空促銷／異常低價</div><div class="sectionSub">Travelpayouts 標記的 special offers，售完可能失效。</div></div><div class="promoGrid">${data.specials.map(promoCard).join('')}</div>`;
+  if(!data.results?.length){box.innerHTML='<div class="panel">目前沒有符合條件的航班。可以換日期、取消直飛限制或提高預算。</div>';return}
   box.innerHTML=data.results.map((f,i)=>{
    const dep=dt(f.departAt),arr=dt(f.arriveAt),dur=durationText(f.duration),time=dep&&arr?`${dep} → ${arr}`:dep?`出發：${dep}`:'';
    const airlineRows=(f.airlineOptions||[]).map(a=>`<div class="airlineRow"><div><div class="airlineName">${esc(a.airlineName||a.airline||'航空公司')} ${a.airline?`(${esc(a.airline)})`:''}</div><div class="airlineMeta">${stopText(a.stops)}${a.departAt?` · ${dt(a.departAt)}`:''}${a.duration?` · ${durationText(a.duration)}`:''}</div>${a.link?`<a class="book" href="${esc(a.link)}" target="_blank" rel="noopener noreferrer">查看</a>`:''}</div><div class="airlinePrice">${money(a.amount,a.currency||'TWD')}</div></div>`).join('');
-   return `<article class="flight"><div class="rank">${i<3?'🔥 最便宜 #'+(i+1):'優惠排行 #'+(i+1)}</div><div class="top"><div><div class="city">${esc(f.city||'')}</div><div class="iata">${esc(f.destination||'')}</div></div><div class="price">${money(f.amount,f.currency||'TWD')}</div></div><div class="meta"><span class="pill">${esc(f.airlineName||f.airline||'航空公司')}</span><span class="pill">${stopText(f.stops)}</span>${dur?`<span class="pill">${dur}</span>`:''}</div>${time?`<div class="time">${time}</div>`:''}<div class="airlineList"><div><b>這條航線目前找到的航空公司最低價</b><div class="tiny">依近期搜尋資料排序，不代表所有航空公司都有資料。</div></div>${airlineRows||'<div class="tiny">目前沒有其他航空公司價格資料。</div>'}</div><div class="tiny">價格為最近搜尋到的參考票價，可能不是即時庫存；實際價格與可售狀態以訂票頁面為準。</div></article>`
+   return `<article class="flight"><div class="rank">${i<3?'🔥 最便宜 #'+(i+1):'優惠排行 #'+(i+1)}</div><div class="top"><div><div class="city">${esc(f.city||'')}</div><div class="iata">${esc(f.destination||'')}</div></div><div class="price">${money(f.amount,f.currency||'TWD')}</div></div><div class="meta"><span class="pill">${esc(f.airlineName||f.airline||'航空公司')}</span><span class="pill">${stopText(f.stops)}</span>${dur?`<span class="pill">${dur}</span>`:''}</div>${time?`<div class="time">${time}</div>`:''}<div class="airlineList"><div><b>這條航線目前找到的航空公司最低價</b><div class="tiny">每家航空公司取目前快取中最低價，最多顯示 8 家。</div></div>${airlineRows||'<div class="tiny">目前沒有其他航空公司價格資料。</div>'}</div><div class="tiny">價格為近期搜尋參考價，可能不是即時庫存；實際售價以訂票頁面為準。</div></article>`
   }).join('');
  }catch(e){status.textContent='';box.innerHTML=`<div class="panel">⚠️ ${esc(e.message||'搜尋失敗')}</div>`}finally{btn.disabled=false}
 };

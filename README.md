@@ -1,13 +1,17 @@
-# Fightfind v4.1
+# Fightfind v5
 
-修正 v4 的後端 JavaScript 語法錯誤：
-- 航空公司代碼 `7C`、`5J` 原本作為物件 key 時未加引號，造成 Vercel `SyntaxError: Invalid or unexpected token`。
-- 已修正為合法 JavaScript。
-- Service Worker 快取版本同步升級為 v4.1。
+新增：
+- 國家選單之外，可指定「目的機場」
+- 選「全部主要機場」時維持整國掃描
+- 選指定機場時，只搜尋該機場
+- 新增「低價月曆月份」
+- 指定機場後，下方顯示該月 1～31 日每天最低參考價
+- 月曆使用 Travelpayouts `/v2/prices/month-matrix`
+- 每個目的地最多列出 8 家航空公司的最低價
+- 保留促銷／異常低價區
+- PWA 快取升級 v5
 
-使用方式：
-1. 解壓縮後，全部覆蓋 GitHub `fightfind` repository 內原本檔案。
-2. Commit 到 `main`。
-3. 等 Vercel 自動部署到 Ready。
-4. Vercel Environment Variable 保留：
-   `TRAVELPAYOUTS_TOKEN = 你的 Travelpayouts API Token`
+Vercel 環境變數維持：
+TRAVELPAYOUTS_TOKEN = 你的 Travelpayouts API Token
+
+解壓後全部覆蓋 GitHub fightfind repo，Commit 到 main，等 Vercel Ready。
