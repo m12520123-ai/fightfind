@@ -1,12 +1,13 @@
-# Fightfind / 今天去哪？
+# Fightfind v4
 
-完整 Travelpayouts 版本。
+新增：
+- 每個目的地顯示多家航空公司的最低價
+- 航空公司 IATA 代碼轉名稱
+- 常見台灣/亞洲航空公司顯示中文名稱
+- Travelpayouts Flights special offers 促銷／異常低價區
+- PWA 快取升級為 v4
 
-Vercel 必須設定 Environment Variable:
+Vercel Environment Variable：
 TRAVELPAYOUTS_TOKEN = 你的 Travelpayouts API Token
 
-部署：
-1. 將本資料夾所有檔案覆蓋 GitHub fightfind repo。
-2. Commit 到 main。
-3. 等 Vercel 自動部署完成。
-4. 若舊版曾安裝為 PWA，重新整理一次；新版 sw.js 會清除舊快取。
+將本 ZIP 解壓後全部覆蓋 GitHub fightfind repo，Commit 到 main，等 Vercel 自動部署 Ready。
