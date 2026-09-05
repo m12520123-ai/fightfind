@@ -17,99 +17,196 @@ const DESTINATIONS = {
 };
 
 function json(res, status, body) {
-  res.status(status).setHeader("Content-Type", "application/json; charset=utf-8").send(JSON.stringify(body));
+  res.status(status)
+    .setHeader("Content-Type", "application/json; charset=utf-8")
+    .send(JSON.stringify(body));
 }
 
-async function duffelSearch({ token, origin, destination, date, returnDate, direct }) {
-  const slices = [{ origin, destination, departure_date: date }];
-  if (returnDate) slices.push({ origin: destination, destination: origin, departure_date: returnDate });
+async function travelpayoutsSearch({
+  token,
+  origin,
+  destination,
+  date,
+  returnDate,
+  direct
+}) {
+  const params = new URLSearchParams({
+    origin,
+    destination,
+    departure_at: date,
+    currency: "twd",
+    sorting: "price",
+    direct: direct ? "true" : "false",
+    limit: "30",
+    page: "1",
+    unique: "false",
+    one_way: returnDate ? "false" : "true",
+    token
+  });
 
-  const resp = await fetch("https://api.duffel.com/air/offer_requests?return_offers=true&supplier_timeout=10000", {
-    method: "POST",
+  if (returnDate) {
+    params.set("return_at", returnDate);
+  }
+
+  const url =
+    "https://api.travelpayouts.com/aviasales/v3/prices_for_dates?" +
+    params.toString();
+
+  const resp = await fetch(url, {
     headers: {
-      "Authorization": `Bearer ${token}`,
-      "Duffel-Version": "v2",
-      "Content-Type": "application/json",
-      "Accept": "application/json"
-    },
-    body: JSON.stringify({
-      data: {
-        slices,
-        passengers: [{ type: "adult" }],
-        cabin_class: "economy",
-        ...(direct ? { max_connections: 0 } : {})
-      }
-    })
+      Accept: "application/json"
+    }
   });
 
   const payload = await resp.json().catch(() => ({}));
-  if (!resp.ok) {
-    const msg = payload?.errors?.[0]?.message || `Duffel API ${resp.status}`;
-    throw new Error(msg);
+
+  if (!resp.ok || payload?.success === false) {
+    throw new Error(
+      payload?.error ||
+      payload?.message ||
+      `Travelpayouts API ${resp.status}`
+    );
   }
 
-  const offers = payload?.data?.offers || [];
-  return offers.map(offer => {
-    const outbound = offer.slices?.[0];
-    const firstSeg = outbound?.segments?.[0];
-    const lastSeg = outbound?.segments?.[outbound.segments.length - 1];
-    const airline = offer.owner?.name || firstSeg?.operating_carrier?.name || "航空公司";
-    const stops = Math.max(0, (outbound?.segments?.length || 1) - 1);
-    const baggage = offer.passengers?.[0]?.baggages?.map(b => `${b.quantity}×${b.type}`).join(", ") || "依票價方案";
-    return {
-      id: offer.id,
-      amount: Number(offer.total_amount),
-      currency: offer.total_currency,
-      airline,
-      stops,
-      departAt: firstSeg?.departing_at || null,
-      arriveAt: lastSeg?.arriving_at || null,
-      duration: outbound?.duration || null,
-      baggage,
-      expiresAt: offer.expires_at || null
-    };
-  });
+  const rows = Array.isArray(payload?.data) ? payload.data : [];
+
+  return rows.map(item => ({
+    amount: Number(item.price),
+    currency: (payload.currency || "twd").toUpperCase(),
+    airline: item.airline || "航空公司",
+    flightNumber: item.flight_number || "",
+    stops:
+      typeof item.transfers === "number"
+        ? item.transfers
+        : typeof item.number_of_changes === "number"
+        ? item.number_of_changes
+        : null,
+    departAt: item.departure_at || null,
+    arriveAt: null,
+    duration: item.duration || null,
+    baggage: "依訂票平台票價方案",
+    expiresAt: null,
+    foundAt: item.found_at || null,
+    link: item.link
+      ? `https://www.aviasales.com/search/${item.link.replace(/^\//, "")}`
+      : null
+  }));
 }
 
 async function mapLimit(items, limit, fn) {
   const out = new Array(items.length);
   let i = 0;
+
   async function worker() {
     while (true) {
       const idx = i++;
       if (idx >= items.length) return;
-      try { out[idx] = await fn(items[idx]); }
-      catch (e) { out[idx] = { error: e.message }; }
+
+      try {
+        out[idx] = await fn(items[idx]);
+      } catch (e) {
+        out[idx] = { error: e.message };
+      }
     }
   }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(limit, items.length) },
+      worker
+    )
+  );
+
   return out;
 }
 
 export default async function handler(req, res) {
-  if (req.method !== "POST") return json(res, 405, { error: "Method not allowed" });
-  const token = process.env.DUFFEL_ACCESS_TOKEN;
-  if (!token) return json(res, 500, { error: "尚未設定 DUFFEL_ACCESS_TOKEN" });
+  if (req.method !== "POST") {
+    return json(res, 405, { error: "Method not allowed" });
+  }
 
-  const { origin = "TPE", country = "JP", date, returnDate = "", direct = false, budget = 0 } = req.body || {};
-  if (!date) return json(res, 400, { error: "請選擇出發日期" });
+  const token = process.env.TRAVELPAYOUTS_TOKEN;
+
+  if (!token) {
+    return json(res, 500, {
+      error: "尚未設定 TRAVELPAYOUTS_TOKEN"
+    });
+  }
+
+  const {
+    origin = "TPE",
+    country = "JP",
+    date,
+    returnDate = "",
+    direct = false,
+    budget = 0
+  } = req.body || {};
+
+  if (!date) {
+    return json(res, 400, {
+      error: "請選擇出發日期"
+    });
+  }
+
   const destinations = DESTINATIONS[country];
-  if (!destinations) return json(res, 400, { error: "目前尚未支援這個國家" });
 
-  const batches = await mapLimit(destinations, 4, async ([iata, city]) => {
-    const offers = await duffelSearch({ token, origin, destination: iata, date, returnDate: returnDate || null, direct });
-    const filtered = offers.filter(x => !budget || x.amount <= Number(budget));
-    const best = filtered.sort((a,b) => a.amount - b.amount)[0];
-    return best ? { ...best, destination: iata, city } : null;
-  });
+  if (!destinations) {
+    return json(res, 400, {
+      error: "目前尚未支援這個國家"
+    });
+  }
 
-  const results = batches.filter(x => x && !x.error).sort((a,b) => a.amount - b.amount);
-  const errors = batches.filter(x => x?.error).map(x => x.error);
+  const batches = await mapLimit(
+    destinations,
+    4,
+    async ([iata, city]) => {
+      const offers = await travelpayoutsSearch({
+        token,
+        origin,
+        destination: iata,
+        date,
+        returnDate: returnDate || null,
+        direct
+      });
+
+      const filtered = offers.filter(item => {
+        if (direct && item.stops !== 0) return false;
+        if (budget && item.amount > Number(budget)) return false;
+        return true;
+      });
+
+      const best = filtered.sort(
+        (a, b) => a.amount - b.amount
+      )[0];
+
+      return best
+        ? {
+            ...best,
+            destination: iata,
+            city
+          }
+        : null;
+    }
+  );
+
+  const results = batches
+    .filter(x => x && !x.error)
+    .sort((a, b) => a.amount - b.amount);
+
+  const errors = batches
+    .filter(x => x?.error)
+    .map(x => x.error);
+
   return json(res, 200, {
-    origin, country, date, returnDate: returnDate || null,
+    origin,
+    country,
+    date,
+    returnDate: returnDate || null,
     searched: destinations.length,
     results,
-    warnings: [...new Set(errors)].slice(0, 3),
+    warnings: [...new Set(errors)].slice(0, 5),
+    source: "Travelpayouts / Aviasales Data API",
+    cachedPriceData: true,
     generatedAt: new Date().toISOString()
   });
 }
