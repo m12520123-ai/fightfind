@@ -1,13 +1,13 @@
-# Fightfind v4
+# Fightfind v4.1
 
-新增：
-- 每個目的地顯示多家航空公司的最低價
-- 航空公司 IATA 代碼轉名稱
-- 常見台灣/亞洲航空公司顯示中文名稱
-- Travelpayouts Flights special offers 促銷／異常低價區
-- PWA 快取升級為 v4
+修正 v4 的後端 JavaScript 語法錯誤：
+- 航空公司代碼 `7C`、`5J` 原本作為物件 key 時未加引號，造成 Vercel `SyntaxError: Invalid or unexpected token`。
+- 已修正為合法 JavaScript。
+- Service Worker 快取版本同步升級為 v4.1。
 
-Vercel Environment Variable：
-TRAVELPAYOUTS_TOKEN = 你的 Travelpayouts API Token
-
-將本 ZIP 解壓後全部覆蓋 GitHub fightfind repo，Commit 到 main，等 Vercel 自動部署 Ready。
+使用方式：
+1. 解壓縮後，全部覆蓋 GitHub `fightfind` repository 內原本檔案。
+2. Commit 到 `main`。
+3. 等 Vercel 自動部署到 Ready。
+4. Vercel Environment Variable 保留：
+   `TRAVELPAYOUTS_TOKEN = 你的 Travelpayouts API Token`
